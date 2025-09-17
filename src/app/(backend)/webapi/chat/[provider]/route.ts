@@ -119,21 +119,21 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
         flush() {
           // 处理缓冲区中剩余的数据（如果有）
           if (buffer.trim() && !foundUsage && buffer.startsWith('data: ')) {
-              const jsonStr = buffer.slice(6).trim();
-              if (jsonStr && jsonStr !== '[DONE]') {
-                try {
-                  const jsonData = JSON.parse(jsonStr);
-                  if (jsonData.usage) {
-                    // 如果在最后找到usage，也记录下来
-                    console.log('=== 🔑 API调用统计（流结束时） ===');
-                    console.log(`总Token: ${jsonData.totalTokens || 0}`);
-                    console.log('========================');
-                  }
-                } catch {
-                  // 忽略解析错误
+            const jsonStr = buffer.slice(6).trim();
+            if (jsonStr && jsonStr !== '[DONE]') {
+              try {
+                const jsonData = JSON.parse(jsonStr);
+                if (jsonData.usage) {
+                  // 如果在最后找到usage，也记录下来
+                  console.log('=== 🔑 API调用统计（流结束时） ===');
+                  console.log(`总Token: ${jsonData.totalTokens || 0}`);
+                  console.log('========================');
                 }
+              } catch {
+                // 忽略解析错误
               }
             }
+          }
         },
 
         transform(chunk, controller) {
@@ -148,7 +148,7 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
             // 处理缓冲区中的完整行
             const lines = buffer.split('\n');
             // 保留最后一个不完整的行在缓冲区
-            buffer = lines.at(-1);
+            buffer = lines.at(-1) || '';
 
             for (let i = 0; i < lines.length - 1; i++) {
               const line = lines[i]; // 不要trim，保留原始格式
@@ -168,76 +168,77 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload, createR
                 const dataStr = trimmedLine.slice(6).trim();
 
                 // 如果当前事件是usage，尝试解析数据
-                if (currentEvent === 'usage' && !foundUsage && // 跳过空数据
-                  dataStr && dataStr !== '""') {
-                    try {
-                      // 尝试解析JSON格式的usage数据
-                      const usageData = JSON.parse(dataStr);
-                      foundUsage = true;
+                if (
+                  currentEvent === 'usage' &&
+                  !foundUsage && // 跳过空数据
+                  dataStr &&
+                  dataStr !== '""'
+                ) {
+                  try {
+                    // 尝试解析JSON格式的usage数据
+                    const usageData = JSON.parse(dataStr);
+                    foundUsage = true;
 
-                      console.log('=== 🔑 API调用统计 ===');
-                      console.log(`时间戳: ${new Date().toISOString()}`);
-                      console.log(`用户ID: ${jwtPayload.userId}`);
-                      console.log(`提供商: ${provider}`);
+                    console.log('=== 🔑 API调用统计 ===');
+                    console.log(`时间戳: ${new Date().toISOString()}`);
+                    console.log(`用户ID: ${jwtPayload.userId}`);
+                    console.log(`提供商: ${provider}`);
 
-                      if (currentApiKeyInfo) {
-                        console.log(`🔑 API Key: ${currentApiKeyInfo.maskedKey}`);
-                      } else {
-                        console.log(`🔑 API Key: 未获取到信息`);
-                      }
-
-                      // 处理model-runtime的usage数据格式
-                      const totalTokens = usageData.totalTokens || usageData.total_tokens || 0;
-                      const inputTokens =
-                        usageData.totalInputTokens ||
-                        usageData.inputTextTokens ||
-                        usageData.prompt_tokens ||
-                        0;
-                      const outputTokens =
-                        usageData.totalOutputTokens ||
-                        usageData.outputTextTokens ||
-                        usageData.completion_tokens ||
-                        0;
-
-                      console.log(`📊 总Token: ${totalTokens}`);
-                      console.log(`📥 输入Token: ${inputTokens}`);
-                      console.log(`📤 输出Token: ${outputTokens}`);
-
-                      // 额外的token信息（如果有的话）
-                      if (usageData.inputTextTokens && usageData.inputTextTokens !== inputTokens) {
-                        console.log(`📝 输入文本Token: ${usageData.inputTextTokens}`);
-                      }
-                      if (
-                        usageData.outputTextTokens &&
-                        usageData.outputTextTokens !== outputTokens
-                      ) {
-                        console.log(`📝 输出文本Token: ${usageData.outputTextTokens}`);
-                      }
-                      if (usageData.outputReasoningTokens) {
-                        console.log(`🧠 推理Token: ${usageData.outputReasoningTokens}`);
-                      }
-
-                      console.log('========================');
-
-                      // 这里可以调用您的外部服务记录使用量
-                      // await fetch('http://your-service/api/record-usage', {
-                      //   method: 'POST',
-                      //   headers: { 'Content-Type': 'application/json' },
-                      //   body: JSON.stringify({
-                      //     userId: jwtPayload.userId,
-                      //     provider: provider,
-                      //     apiKey: currentApiKeyInfo?.maskedKey,
-                      //     totalTokens: totalTokens,
-                      //     inputTokens: inputTokens,
-                      //     outputTokens: outputTokens,
-                      //     timestamp: new Date().toISOString()
-                      //   })
-                      // });
-                    } catch (parseErr: any) {
-                      // 忽略解析错误，继续处理下一个
-                      console.error('解析usage数据失败:', parseErr?.message || parseErr);
+                    if (currentApiKeyInfo) {
+                      console.log(`🔑 API Key: ${currentApiKeyInfo.maskedKey}`);
+                    } else {
+                      console.log(`🔑 API Key: 未获取到信息`);
                     }
+
+                    // 处理model-runtime的usage数据格式
+                    const totalTokens = usageData.totalTokens || usageData.total_tokens || 0;
+                    const inputTokens =
+                      usageData.totalInputTokens ||
+                      usageData.inputTextTokens ||
+                      usageData.prompt_tokens ||
+                      0;
+                    const outputTokens =
+                      usageData.totalOutputTokens ||
+                      usageData.outputTextTokens ||
+                      usageData.completion_tokens ||
+                      0;
+
+                    console.log(`📊 总Token: ${totalTokens}`);
+                    console.log(`📥 输入Token: ${inputTokens}`);
+                    console.log(`📤 输出Token: ${outputTokens}`);
+
+                    // 额外的token信息（如果有的话）
+                    if (usageData.inputTextTokens && usageData.inputTextTokens !== inputTokens) {
+                      console.log(`📝 输入文本Token: ${usageData.inputTextTokens}`);
+                    }
+                    if (usageData.outputTextTokens && usageData.outputTextTokens !== outputTokens) {
+                      console.log(`📝 输出文本Token: ${usageData.outputTextTokens}`);
+                    }
+                    if (usageData.outputReasoningTokens) {
+                      console.log(`🧠 推理Token: ${usageData.outputReasoningTokens}`);
+                    }
+
+                    console.log('========================');
+
+                    // 这里可以调用您的外部服务记录使用量
+                    // await fetch('http://your-service/api/record-usage', {
+                    //   method: 'POST',
+                    //   headers: { 'Content-Type': 'application/json' },
+                    //   body: JSON.stringify({
+                    //     userId: jwtPayload.userId,
+                    //     provider: provider,
+                    //     apiKey: currentApiKeyInfo?.maskedKey,
+                    //     totalTokens: totalTokens,
+                    //     inputTokens: inputTokens,
+                    //     outputTokens: outputTokens,
+                    //     timestamp: new Date().toISOString()
+                    //   })
+                    // });
+                  } catch (parseErr: any) {
+                    // 忽略解析错误，继续处理下一个
+                    console.error('解析usage数据失败:', parseErr?.message || parseErr);
                   }
+                }
               }
             }
           } catch {

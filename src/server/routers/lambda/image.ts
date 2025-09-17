@@ -91,6 +91,7 @@ export type CreateImageServicePayload = z.infer<typeof createImageInputSchema>;
 
 export const imageRouter = router({
   createImage: imageProcedure.input(createImageInputSchema).mutation(async ({ input, ctx }) => {
+    console.log('edzhao-========image--imageRouter');
     const { userId, serverDB, asyncTaskModel, fileService } = ctx;
     const { generationTopicId, provider, model, imageNum, params } = input;
 
@@ -152,7 +153,7 @@ export const imageRouter = router({
       const [batch] = await tx.insert(generationBatches).values(newBatch).returning();
       log('Generation batch created successfully: %s', batch.id);
 
-      // 2. 创建 4 个 generation（一期固定生成 4 张）
+      // 2. 创建 generation（根据 imageNum 参数动态生成）
       const seeds =
         'seed' in params
           ? generateUniqueSeeds(imageNum)
