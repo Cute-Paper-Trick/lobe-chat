@@ -42,6 +42,7 @@ import { API_ENDPOINTS } from '../_url';
 import { initializeWithClientStore } from './clientModelRuntime';
 import { contextEngineering } from './contextEngineering';
 import { findDeploymentName, isCanUseFC, isEnableFetchOnClient } from './helper';
+import { filterUserTools } from './quota';
 import { FetchOptions } from './types';
 
 interface GetChatCompletionPayload extends Partial<Omit<ChatStreamPayload, 'messages'>> {
@@ -74,7 +75,7 @@ interface CreateAssistantMessageStream extends FetchSSEOptions {
 class ChatService {
   createAssistantMessage = async (
     { plugins: enabledPlugins, messages, ...params }: GetChatCompletionPayload,
-    options?: FetchOptions,
+    options?: FetchOptions & { userId?: string },
   ) => {
     const payload = merge(
       {
@@ -102,11 +103,18 @@ class ChatService {
 
     const useApplicationBuiltinSearchTool = enabledSearch && !useModelSearch;
 
-    const pluginIds = [...(enabledPlugins || [])];
+    let pluginIds = [...(enabledPlugins || [])];
 
     if (useApplicationBuiltinSearchTool) {
       pluginIds.push(WebBrowsingManifest.identifier);
     }
+
+    // =================== 0.5. filter tools by quota =================== //
+    // 获取用户ID并过滤工具
+    const userId = options?.userId || userProfileSelectors.userId(useUserStore.getState());
+    console.log(`[Tool Quota] 开始配额检查，用户: ${userId}, 原始工具: ${pluginIds.join(', ')}`);
+    pluginIds = await filterUserTools(userId, pluginIds);
+    console.log(`[Tool Quota] 配额过滤后工具: ${pluginIds.join(', ')}`);
 
     // ============  1. preprocess messages   ============ //
 
@@ -130,8 +138,8 @@ class ChatService {
     );
 
     // ============  2. preprocess tools   ============ //
-
-    const tools = this.prepareTools(pluginIds, {
+    // 注意：工具已经在上面通过配额过滤，这里只需要转换格式
+    const tools = await this.prepareTools(pluginIds, {
       model: payload.model,
       provider: payload.provider!,
     });
@@ -231,6 +239,9 @@ class ChatService {
     isWelcomeQuestion,
     historySummary,
   }: CreateAssistantMessageStream) => {
+    // 获取当前用户ID用于配额检查
+    const userId = userProfileSelectors.userId(useUserStore.getState());
+
     await this.createAssistantMessage(params, {
       historySummary,
       isWelcomeQuestion,
@@ -240,6 +251,7 @@ class ChatService {
       onMessageHandle,
       signal: abortController?.signal,
       trace: this.mapTrace(trace, TraceTagMap.Chat),
+      userId,
     });
   };
 
@@ -424,7 +436,7 @@ class ChatService {
         provider: params.provider!,
         tools: params.plugins,
       });
-      const tools = this.prepareTools(params.plugins || [], {
+      const tools = await this.prepareTools(params.plugins || [], {
         model: params.model!,
         provider: params.provider!,
       });
@@ -488,7 +500,8 @@ class ChatService {
     return agentRuntime.chat(data, { signal: params.signal });
   };
 
-  private prepareTools = (pluginIds: string[], { model, provider }: WorkingModel) => {
+  private prepareTools = async (pluginIds: string[], { model, provider }: WorkingModel) => {
+    // 注意：工具已经在 createAssistantMessage 中通过配额过滤
     let filterTools = toolSelectors.enabledSchema(pluginIds)(getToolStoreState());
 
     // check this model can use function call
