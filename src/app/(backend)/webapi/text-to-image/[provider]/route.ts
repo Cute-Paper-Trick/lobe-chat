@@ -1,9 +1,14 @@
-import { ChatCompletionErrorPayload, TextToImagePayload } from '@lobechat/model-runtime';
+import {
+  AgentRuntimeErrorType,
+  ChatCompletionErrorPayload,
+  TextToImagePayload,
+} from '@lobechat/model-runtime';
 import { ChatErrorType } from '@lobechat/types';
 import { NextResponse } from 'next/server';
 
 import { checkAuth } from '@/app/(backend)/middleware/auth';
 import { initModelRuntimeWithUserPayload } from '@/server/modules/ModelRuntime';
+import { checkUserImageQuota } from '@/server/services/quota';
 import { createErrorResponse } from '@/utils/errorResponse';
 
 export const preferredRegion = [
@@ -48,6 +53,23 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload }) => {
   const { provider } = await params;
 
   try {
+    // ============  0. check user quota   ============ //
+    const userId = jwtPayload?.userId;
+    console.log(`[Image Generation API] 检查用户 ${userId} 的图片生成配额`);
+
+    const quotaCheck = await checkUserImageQuota(userId);
+    if (!quotaCheck.allowed) {
+      console.log(`[Image Generation API] ❌ 用户 ${userId} 配额不足: ${quotaCheck.reason}`);
+      return createErrorResponse(AgentRuntimeErrorType.QuotaLimitReached, {
+        error: quotaCheck.reason || '图片生成配额已用尽',
+        provider,
+      });
+    }
+
+    console.log(
+      `[Image Generation API] ✅ 用户 ${userId} 配额检查通过，剩余: ${quotaCheck.remaining}`,
+    );
+
     // ============  1. init chat model   ============ //
     const agentRuntime = await initModelRuntimeWithUserPayload(provider, jwtPayload);
 
@@ -56,6 +78,11 @@ export const POST = checkAuth(async (req: Request, { params, jwtPayload }) => {
     const data = (await req.json()) as TextToImagePayload;
 
     const images = await agentRuntime.textToImage(data);
+
+    // ============  3. deduct quota after successful generation   ============ //
+    // TODO: 调用配额服务扣减用户配额
+    // await deductUserImageQuota(userId);
+    console.log(`[Image Generation API] 成功生成图片，应扣减用户 ${userId} 配额`);
 
     return NextResponse.json(images);
   } catch (e) {

@@ -115,6 +115,81 @@ export const chatPlugin: StateCreator<
       internal_updateMessageContent,
       internal_updatePluginError,
     } = get();
+
+    // 特殊处理Web Browsing搜索 - 在执行前拦截
+    console.log('[Plugin Action] 工具调用:', payload.identifier, payload.apiName);
+    if (payload.identifier === 'lobe-web-browsing' && payload.apiName === 'search') {
+      console.log('[Web Search] 拦截搜索请求，参数:', payload.arguments);
+
+      const searchParams = JSON.parse(payload.arguments);
+
+      // 开始加载状态
+      internal_togglePluginApiCalling(true, id, n('invokeBuiltinTool/search/start') as string);
+
+      try {
+        // 这里可以调用你的自定义搜索服务
+        // const searchResults = await yourCustomSearchService(searchParams.query);
+
+        // 模拟搜索结果 - 符合 UniformSearchResponse 格式
+        const mockSearchResults = {
+          query: searchParams.query,
+          costTime: 1234, // 搜索耗时（毫秒）
+          resultNumbers: 3, // 结果数量
+          results: [
+            {
+              title: `自定义搜索结果 1: ${searchParams.query}`,
+              url: 'https://www.baidu.com/1',
+              content: `今天咪咪绝育了，然后在麻药没有过的时候把人给挠了 - 这是关于 ${searchParams.query} 的详细内容`,
+              parsedUrl: 'baidu.com',
+              engines: ['google', 'bing'], // 使用正确的引擎标识符
+              score: 0.95,
+              category: 'general',
+              publishedDate: new Date().toISOString(),
+            },
+            {
+              title: `自定义搜索结果 2: ${searchParams.query}`,
+              url: 'https://www.baidu.com/2',
+              content: `刘洋被抓了 - 更多关于 ${searchParams.query} 的信息`,
+              parsedUrl: 'baidu.com',
+              engines: ['duckduckgo'], // 使用正确的引擎标识符
+              score: 0.9,
+              category: 'news',
+              publishedDate: new Date().toISOString(),
+            },
+            {
+              title: `自定义搜索结果 3: ${searchParams.query}`,
+              url: 'https://www.baidu.com/3',
+              content: `我们新来了一个前台 - ${searchParams.query} 相关内容`,
+              parsedUrl: 'baidu.com',
+              engines: ['google', 'brave'], // 使用正确的引擎标识符
+              score: 0.85,
+              category: 'general',
+            },
+          ],
+        };
+
+        // 更新 pluginState 以便 UI 显示搜索结果
+        await get().updatePluginState(id, mockSearchResults);
+
+        // 更新消息内容以便 AI 能看到结果
+        const data = JSON.stringify(mockSearchResults);
+        await internal_updateMessageContent(id, data);
+
+        // 结束加载状态
+        internal_togglePluginApiCalling(false, id, n('invokeBuiltinTool/search/end') as string);
+
+        console.log('[Web Search] 搜索完成，已更新消息内容');
+
+        // 返回 undefined 避免重复触发 AI 消息
+        return data;
+      } catch (error) {
+        // 错误处理
+        internal_togglePluginApiCalling(false, id, n('invokeBuiltinTool/search/error') as string);
+        console.error('[Web Search] 搜索失败:', error);
+        throw error;
+      }
+    }
+
     const params = JSON.parse(payload.arguments);
     internal_togglePluginApiCalling(true, id, n('invokeBuiltinTool/start') as string);
     let data;
@@ -253,11 +328,13 @@ export const chatPlugin: StateCreator<
 
   triggerToolCalls: async (assistantId, { threadId, inPortalThread, inSearchWorkflow } = {}) => {
     const message = chatSelectors.getMessageById(assistantId)(get());
+    console.log('[triggerToolCalls] 开始执行，消息ID:', assistantId, '工具列表:', message?.tools);
     if (!message || !message.tools) return;
 
     let shouldCreateMessage = false;
     let latestToolId = '';
     const messagePools = message.tools.map(async (payload) => {
+      console.log('[triggerToolCalls] 准备调用工具:', payload);
       const toolMessage: CreateMessageParams = {
         content: LOADING_FLAT,
         parentId: assistantId,
@@ -433,6 +510,14 @@ export const chatPlugin: StateCreator<
   },
 
   internal_invokeDifferentTypePlugin: async (id, payload) => {
+    console.log(
+      '[internal_invokeDifferentTypePlugin] 工具类型:',
+      payload.type,
+      '标识符:',
+      payload.identifier,
+      'API名称:',
+      payload.apiName,
+    );
     switch (payload.type) {
       case 'standalone': {
         return await get().invokeStandaloneTypePlugin(id, payload);
@@ -443,6 +528,7 @@ export const chatPlugin: StateCreator<
       }
 
       case 'builtin': {
+        console.log('[internal_invokeDifferentTypePlugin] 调用内置工具');
         return await get().invokeBuiltinTool(id, payload);
       }
 
