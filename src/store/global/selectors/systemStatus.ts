@@ -13,6 +13,7 @@ const mobileShowTopic = (s: GlobalState) => s.status.mobileShowTopic;
 const mobileShowPortal = (s: GlobalState) => s.status.mobileShowPortal;
 const showChatSideBar = (s: GlobalState) => !s.status.zenMode && s.status.showChatSideBar;
 const showSessionPanel = (s: GlobalState) => !s.status.zenMode && s.status.showSessionPanel;
+const showTopicPanel = (s: GlobalState) => !s.status.zenMode && s.status.showTopicPanel;
 const showFilePanel = (s: GlobalState) => s.status.showFilePanel;
 const showImagePanel = (s: GlobalState) => s.status.showImagePanel;
 const showImageTopicPanel = (s: GlobalState) => s.status.showImageTopicPanel;
@@ -24,6 +25,7 @@ const language = (s: GlobalState) => s.status.language || 'auto';
 const showChatHeader = (s: GlobalState) => !s.status.zenMode;
 const inZenMode = (s: GlobalState) => s.status.zenMode;
 const sessionWidth = (s: GlobalState) => s.status.sessionsWidth;
+const topicWidth = (s: GlobalState) => s.status.topicWidth;
 const portalWidth = (s: GlobalState) => s.status.portalWidth || 400;
 const filePanelWidth = (s: GlobalState) => s.status.filePanelWidth;
 const imagePanelWidth = (s: GlobalState) => s.status.imagePanelWidth;
@@ -91,7 +93,9 @@ export const systemStatusSelectors = {
   showImageTopicPanel,
   showSessionPanel,
   showSystemRole,
+  showTopicPanel,
   systemStatus,
   themeMode,
+  topicWidth,
   wideScreen,
 };

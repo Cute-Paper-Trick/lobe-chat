@@ -21,10 +21,15 @@ const leftActions: ActionKeys[] = [
   'search',
   'fileUpload',
   'knowledgeBase',
-  'tools',
+  // 'tools',
   '---',
-  ['params', 'history', 'stt', 'clear'],
-  'mainToken',
+  [
+    // 'params',
+    'history',
+    'stt',
+    'clear',
+  ],
+  // 'mainToken',
 ];
 
 const rightActions: ActionKey[] = ['saveTopic'];

@@ -84,11 +84,13 @@ export interface SystemStatus {
   showImageTopicPanel?: boolean;
   showSessionPanel?: boolean;
   showSystemRole?: boolean;
+  showTopicPanel?: boolean;
   systemRoleExpandedMap: Record<string, boolean>;
   /**
    * theme mode
    */
   themeMode?: ThemeMode;
+  topicWidth: number;
   zenMode?: boolean;
 }
 
@@ -138,6 +140,7 @@ export const INITIAL_STATUS = {
   showSystemRole: false,
   systemRoleExpandedMap: {},
   themeMode: 'auto',
+  topicWidth: 320,
   zenMode: false,
 } satisfies SystemStatus;
 

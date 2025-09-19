@@ -23,10 +23,15 @@ const leftActions: ActionKeys[] = [
   'typo',
   'fileUpload',
   'knowledgeBase',
-  'tools',
+  // 'tools',
   '---',
-  ['params', 'history', 'stt', 'clear'],
-  'mainToken',
+  [
+    // 'params',
+    'history',
+    'stt',
+    'clear',
+  ],
+  // 'mainToken',
 ];
 
 const rightActions: ActionKeys[] = ['saveTopic'];

@@ -129,8 +129,8 @@ const Controls = memo(() => {
       {options.map((option) => (
         <Item {...option} key={option.value} />
       ))}
-      {showDivider && <Divider style={{ margin: 0 }} />}
-      {showModelBuiltinSearch && <ModelBuiltinSearch />}
+      {false && showDivider && <Divider style={{ margin: 0 }} />}
+      {false && showModelBuiltinSearch && <ModelBuiltinSearch />}
       {!supportFC && <FCSearchModel />}
     </Flexbox>
   );
