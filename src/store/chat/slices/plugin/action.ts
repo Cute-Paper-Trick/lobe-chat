@@ -130,29 +130,48 @@ export const chatPlugin: StateCreator<
         // 这里可以调用你的自定义搜索服务
         // const searchResults = await yourCustomSearchService(searchParams.query);
 
-        // 模拟搜索结果
+        // 模拟搜索结果 - 符合 UniformSearchResponse 格式
         const mockSearchResults = {
           query: searchParams.query,
+          costTime: 1234, // 搜索耗时（毫秒）
+          resultNumbers: 3, // 结果数量
           results: [
             {
               title: `自定义搜索结果 1: ${searchParams.query}`,
-              url: 'https://www.baidu.com',
-              snippet: `今天咪咪绝育了`,
+              url: 'https://www.baidu.com/1',
+              content: `今天咪咪绝育了，然后在麻药没有过的时候把人给挠了 - 这是关于 ${searchParams.query} 的详细内容`,
+              parsedUrl: 'baidu.com',
+              engines: ['google', 'bing'], // 使用正确的引擎标识符
+              score: 0.95,
+              category: 'general',
+              publishedDate: new Date().toISOString(),
             },
             {
               title: `自定义搜索结果 2: ${searchParams.query}`,
-              url: 'https://www.baidu.com',
-              snippet: `刘洋被抓了`,
+              url: 'https://www.baidu.com/2',
+              content: `刘洋被抓了 - 更多关于 ${searchParams.query} 的信息`,
+              parsedUrl: 'baidu.com',
+              engines: ['duckduckgo'], // 使用正确的引擎标识符
+              score: 0.9,
+              category: 'news',
+              publishedDate: new Date().toISOString(),
             },
             {
               title: `自定义搜索结果 3: ${searchParams.query}`,
-              url: 'https://www.baidu.com',
-              snippet: `我们新来了一个前台`,
+              url: 'https://www.baidu.com/3',
+              content: `我们新来了一个前台 - ${searchParams.query} 相关内容`,
+              parsedUrl: 'baidu.com',
+              engines: ['google', 'brave'], // 使用正确的引擎标识符
+              score: 0.85,
+              category: 'general',
             },
           ],
         };
 
-        // 更新消息内容
+        // 更新 pluginState 以便 UI 显示搜索结果
+        await get().updatePluginState(id, mockSearchResults);
+
+        // 更新消息内容以便 AI 能看到结果
         const data = JSON.stringify(mockSearchResults);
         await internal_updateMessageContent(id, data);
 
@@ -161,7 +180,7 @@ export const chatPlugin: StateCreator<
 
         console.log('[Web Search] 搜索完成，已更新消息内容');
 
-        // 模拟正常的 action 返回（Web Browsing 没有对应的 action，所以我们直接返回数据）
+        // 返回 undefined 避免重复触发 AI 消息
         return data;
       } catch (error) {
         // 错误处理
