@@ -115,6 +115,62 @@ export const chatPlugin: StateCreator<
       internal_updateMessageContent,
       internal_updatePluginError,
     } = get();
+
+    // 特殊处理Web Browsing搜索 - 在执行前拦截
+    console.log('[Plugin Action] 工具调用:', payload.identifier, payload.apiName);
+    if (payload.identifier === 'lobe-web-browsing' && payload.apiName === 'search') {
+      console.log('[Web Search] 拦截搜索请求，参数:', payload.arguments);
+
+      const searchParams = JSON.parse(payload.arguments);
+
+      // 开始加载状态
+      internal_togglePluginApiCalling(true, id, n('invokeBuiltinTool/search/start') as string);
+
+      try {
+        // 这里可以调用你的自定义搜索服务
+        // const searchResults = await yourCustomSearchService(searchParams.query);
+
+        // 模拟搜索结果
+        const mockSearchResults = {
+          query: searchParams.query,
+          results: [
+            {
+              title: `自定义搜索结果 1: ${searchParams.query}`,
+              url: 'https://www.baidu.com',
+              snippet: `今天咪咪绝育了`,
+            },
+            {
+              title: `自定义搜索结果 2: ${searchParams.query}`,
+              url: 'https://www.baidu.com',
+              snippet: `刘洋被抓了`,
+            },
+            {
+              title: `自定义搜索结果 3: ${searchParams.query}`,
+              url: 'https://www.baidu.com',
+              snippet: `我们新来了一个前台`,
+            },
+          ],
+        };
+
+        // 更新消息内容
+        const data = JSON.stringify(mockSearchResults);
+        await internal_updateMessageContent(id, data);
+
+        // 结束加载状态
+        internal_togglePluginApiCalling(false, id, n('invokeBuiltinTool/search/end') as string);
+
+        console.log('[Web Search] 搜索完成，已更新消息内容');
+
+        // 模拟正常的 action 返回（Web Browsing 没有对应的 action，所以我们直接返回数据）
+        return data;
+      } catch (error) {
+        // 错误处理
+        internal_togglePluginApiCalling(false, id, n('invokeBuiltinTool/search/error') as string);
+        console.error('[Web Search] 搜索失败:', error);
+        throw error;
+      }
+    }
+
     const params = JSON.parse(payload.arguments);
     internal_togglePluginApiCalling(true, id, n('invokeBuiltinTool/start') as string);
     let data;
@@ -253,11 +309,13 @@ export const chatPlugin: StateCreator<
 
   triggerToolCalls: async (assistantId, { threadId, inPortalThread, inSearchWorkflow } = {}) => {
     const message = chatSelectors.getMessageById(assistantId)(get());
+    console.log('[triggerToolCalls] 开始执行，消息ID:', assistantId, '工具列表:', message?.tools);
     if (!message || !message.tools) return;
 
     let shouldCreateMessage = false;
     let latestToolId = '';
     const messagePools = message.tools.map(async (payload) => {
+      console.log('[triggerToolCalls] 准备调用工具:', payload);
       const toolMessage: CreateMessageParams = {
         content: LOADING_FLAT,
         parentId: assistantId,
@@ -433,6 +491,14 @@ export const chatPlugin: StateCreator<
   },
 
   internal_invokeDifferentTypePlugin: async (id, payload) => {
+    console.log(
+      '[internal_invokeDifferentTypePlugin] 工具类型:',
+      payload.type,
+      '标识符:',
+      payload.identifier,
+      'API名称:',
+      payload.apiName,
+    );
     switch (payload.type) {
       case 'standalone': {
         return await get().invokeStandaloneTypePlugin(id, payload);
@@ -443,6 +509,7 @@ export const chatPlugin: StateCreator<
       }
 
       case 'builtin': {
+        console.log('[internal_invokeDifferentTypePlugin] 调用内置工具');
         return await get().invokeBuiltinTool(id, payload);
       }
 
